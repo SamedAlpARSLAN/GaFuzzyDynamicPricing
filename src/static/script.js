@@ -14,14 +14,6 @@ function tlFormat(num) {
   return num.toFixed(2).replace(".", ",");
 }
 
-function parseNumber(str) {
-  if (str === null || str === undefined) return null;
-  const cleaned = str.trim().replace(",", ".");
-  if (cleaned === "") return null;
-  const val = Number(cleaned);
-  return Number.isNaN(val) ? NaN : val;
-}
-
 let demandChart = null;
 let revenueChart = null;
 
@@ -48,26 +40,17 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsSection.style.display = "none";
     chartsSection.style.display = "none";
 
-    const compVal = parseNumber(
-      document.getElementById("competitorPrice").value
-    );
-    if (!Number.isFinite(compVal) || compVal <= 0) {
-      showError(
-        "Rakip ortalama fiyatı için pozitif bir sayı giriniz (örneğin 80 veya 80,50)."
-      );
-      return;
-    }
-
-    const minInput = document.getElementById("priceMin").value;
-    const maxInput = document.getElementById("priceMax").value;
+    const compInput = document.getElementById("competitorPrice").value.trim();
+    const minInput = document.getElementById("priceMin").value.trim();
+    const maxInput = document.getElementById("priceMax").value.trim();
 
     btn.disabled = true;
     btn.textContent = "Hesaplanıyor...";
 
     const payload = {
-      competitor_price: compVal, // backend float olarak parse edecek
-      price_min: minInput.trim(),
-      price_max: maxInput.trim(),
+      competitor_price: compInput, // backend virgül/nokta destekli parse edecek
+      price_min: minInput,
+      price_max: maxInput,
     };
 
     try {
@@ -116,6 +99,29 @@ function updateResults(data, resultsSection, chartsSection) {
   document.getElementById("resCompetitorPrice").textContent = tlFormat(
     data.competitor_price
   );
+    // Kullanıcının girdiği (normalize edilmiş) aralık
+  const userMin = data.user_price_min;
+  const userMax = data.user_price_max;
+  const swapped = !!data.user_range_swapped;
+
+  let userRangeText;
+  if (userMin != null || userMax != null) {
+    if (userMin != null && userMax != null) {
+      userRangeText = `${tlFormat(userMin)} – ${tlFormat(userMax)} TL`;
+      if (swapped) {
+        userRangeText += " (girdiğiniz sıra ters olduğu için düzeltildi)";
+      }
+    } else if (userMin != null) {
+      userRangeText = `${tlFormat(userMin)} TL ve üzeri`;
+    } else {
+      userRangeText = `${tlFormat(userMax)} TL ve altı`;
+    }
+  } else {
+    userRangeText =
+      "Belirtilmedi (model rakip fiyat etrafında otomatik bir pencere kullandı)";
+  }
+
+  document.getElementById("resUserRange").textContent = userRangeText;
   document.getElementById(
     "resModelRange"
   ).textContent = `${tlFormat(data.model_price_min)} – ${tlFormat(
@@ -135,11 +141,6 @@ function updateResults(data, resultsSection, chartsSection) {
   document.getElementById("resExpectedRevenue").textContent = tlFormat(
     data.expected_revenue
   );
-
-  // Kullanıcının girdiği (normalize edilmiş) aralık
-  const userMin = data.user_price_min;
-  const userMax = data.user_price_max;
-  const swapped = !!data.user_range_swapped;
 
   let rangeSentence = "";
 
@@ -173,12 +174,11 @@ function updateResults(data, resultsSection, chartsSection) {
   } else {
     // Kullanıcı aralık girmedi
     rangeSentence =
-      ` Siz herhangi bir fiyat aralığı belirtmediğiniz için, model ` +
-      `eğitim aralığı içinde otomatik olarak ${tlFormat(
-        data.effective_min
-      )}–${tlFormat(
+      ` Siz herhangi bir fiyat aralığı belirtmediğiniz için, model rakip fiyatın ` +
+      `±40 TL penceresini eğitimde gördüğü fiyat aralığı ile kesiştirerek ` +
+      `${tlFormat(data.effective_min)}–${tlFormat(
         data.effective_max
-      )} TL aralığında arama yapmıştır.`;
+      )} TL arasında arama yapmıştır.`;
   }
 
   const explanation = `Bu senaryoda model, rakip ortalama fiyatı ${tlFormat(

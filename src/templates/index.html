@@ -79,7 +79,8 @@
             <li>
               <strong>Rakip Ortalama Fiyatını Girin:</strong> Piyasadaki benzer
               ürünlerin ortalama satış fiyatını TL cinsinden yazın (örneğin
-              <code>80</code>).
+              <code>80</code>). Boş ya da geçersiz girerseniz sistem eğitim
+              aralığının ortasını kullanır.
             </li>
             <li>
               <strong
@@ -93,11 +94,13 @@
                 Not: Alt ve üst sınırı ters sırada girerseniz (örneğin
                 120–60), sistem bu değerleri otomatik olarak küçükten büyüğe
                 sıralar ve daha sonra bu aralığı eğitim fiyat aralığı ile
-                kesiştirir. Ayrıca model hiçbir zaman
+                kesiştirir. Model hiçbir zaman
                 {{ "%.2f"|format(price_min) }} TL’den düşük veya
                 {{ "%.2f"|format(price_max) }} TL’den yüksek fiyatı taramaz;
                 seçtiğiniz aralık eğitim aralığı ile kesiştirildikten sonra
-                kullanılır.
+                kullanılır. Hiç aralık girmezseniz, model rakip fiyat etrafında
+                ±40 TL penceresini eğitim aralığı ile kesiştirerek arama
+                yapar.
               </span>
             </li>
             <li>
@@ -129,7 +132,8 @@
               />
               <small class="muted">
                 Ondalık için virgül veya nokta kullanabilirsiniz
-                (örnek: <code>79,90</code>).
+                (örnek: <code>79,90</code>). Boş ya da geçersiz girerseniz sistem
+                eğitim aralığının ortasından başlayan bir rakip fiyat varsayar.
               </small>
             </div>
 
@@ -142,8 +146,8 @@
                 placeholder="{{ '%.2f'|format(price_min) }}"
               />
               <small class="muted">
-                Boş bırakırsanız eğitim aralığının alt sınırı
-                ({{ '%.2f'|format(price_min) }}) kullanılır.
+                Bu alanı boş bırakabilirsiniz; değer girerseniz model bu alt
+                sınırı eğitim aralığı ile kesiştirir.
               </small>
             </div>
 
@@ -156,8 +160,8 @@
                 placeholder="{{ '%.2f'|format(price_max) }}"
               />
               <small class="muted">
-                Boş bırakırsanız eğitim aralığının üst sınırı
-                ({{ '%.2f'|format(price_max) }}) kullanılır.
+                Bu alanı boş bırakabilirsiniz; değer girerseniz model bu üst
+                sınırı eğitim aralığı ile kesiştirir.
               </small>
             </div>
 
@@ -182,6 +186,10 @@
             <p>
               <strong>Rakip ortalama fiyatı:</strong>
               <span id="resCompetitorPrice">-</span> TL
+            </p>
+            <p>
+              <strong>Kullanıcının belirttiği fiyat aralığı:</strong>
+              <span id="resUserRange">-</span>
             </p>
             <p>
               <strong>Modelin eğitim aralığı:</strong>

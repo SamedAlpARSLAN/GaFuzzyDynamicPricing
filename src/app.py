@@ -203,14 +203,11 @@ def recommend_price():
     """
     data = request.get_json(force=True) or {}
 
-    # 1) Rakip fiyatı oku
+    # 1) Rakip fiyatı oku (virgül/nokta destekli), boşsa None
     comp_price_raw = data.get("competitor_price")
-    try:
-        comp_price = float(str(comp_price_raw).replace(",", "."))
-    except (TypeError, ValueError):
-        comp_price = None
+    comp_price = _parse_optional_float(comp_price_raw)
 
-    # 2) Kullanıcı alt/üst sınırları oku
+    # 2) Kullanıcı alt/üst sınırlarını oku (opsiyonel)
     user_min = _parse_optional_float(data.get("price_min"))
     user_max = _parse_optional_float(data.get("price_max"))
 
@@ -222,7 +219,7 @@ def recommend_price():
     # Rakip fiyatı eğitim aralığına sıkıştır (comp_min, comp_max)
     comp_price = max(min(comp_price, COMP_MAX), COMP_MIN)
 
-    # 4) Kullanıcı aralığı varsa sıralama (sıralama mantığı BURADA)
+    # 4) Kullanıcı aralığını normalleştir (swap gerekirse)
     user_range_swapped = False
     if (
         user_min is not None
@@ -230,8 +227,7 @@ def recommend_price():
         and user_max is not None
         and math.isfinite(user_max)
         and user_min > user_max
-    ):
-        # Alt > üst ise yer değiştir
+    ):        
         user_min, user_max = user_max, user_min
         user_range_swapped = True
 
@@ -261,12 +257,15 @@ def recommend_price():
             eff_min = PRICE_MIN
             eff_max = PRICE_MAX
     else:
-        # Kullanıcı aralık vermediyse: Rakip ±40 TL penceresi
+        # Kullanıcı aralık vermediyse: Rakip ±40 TL penceresi, eğitim aralığı ile kesişim
         SEARCH_HALF_WIDTH = 40.0
         eff_min = max(PRICE_MIN, comp_price - SEARCH_HALF_WIDTH)
         eff_max = min(PRICE_MAX, comp_price + SEARCH_HALF_WIDTH)
 
-    # 6) Grid hesapla
+        if eff_min >= eff_max:
+            eff_min = PRICE_MIN
+            eff_max = PRICE_MAX
+    # 6) Fiyat ızgarasını hesapla
     prices, qty_list, rev_list = compute_grid(comp_price, eff_min, eff_max)
 
     if len(prices) == 0:
