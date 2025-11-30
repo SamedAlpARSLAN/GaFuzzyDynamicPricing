@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>GA ve Bulanık Mantık ile Dinamik Fiyatlandırma Modeli</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page-header">
+        <div>
+          <h1>GA ve Bulanık Mantık ile Dinamik Fiyatlandırma Modeli</h1>
+          <p class="subtitle">
+            Kaggle Retail Price Optimization veri seti kullanılarak,
+            <strong>garden_tools</strong> kategorisi için Genetik Algoritma +
+            Bulanık Mantık tabanlı dinamik fiyatlandırma.
+          </p>
+        </div>
+        <div class="header-badges">
+          <span class="badge">Final Projesi</span>
+          <span class="badge badge-secondary">Bulanık Mantık</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- 1. MODEL ÖZETİ -->
+        <section class="card">
+          <h2>1. Model Özeti (Hocaya Gösterilecek Kısım)</h2>
+          <ul>
+            <li>
+              <strong>Eğitim Fiyat Aralığı:</strong>
+              {{ "%.2f"|format(price_min) }} –
+              {{ "%.2f"|format(price_max) }} TL
+              <br />
+              <span class="muted">
+                Bu aralık, sadece <code>garden_tools</code> ürünleri için veri
+                setinde gözlenen minimum ve maksimum birim fiyatlardan oluşur.
+              </span>
+            </li>
+            <li>
+              <strong>Bulanık kural sayısı:</strong>
+              9 adet (3 fiyat x 3 rakip fiyat seviyesi)
+            </li>
+            <li><strong>Çıktı değişkeni:</strong> Talep (satılan adet)</li>
+            <li>
+              <strong>Öğrenme yöntemi:</strong> Kural çıktıları Genetik
+              Algoritma ile optimize edilmiştir.
+            </li>
+            <li>
+              <strong>Eğitim hatası (MSE):</strong>
+              {{ "%.2f"|format(mse) }}
+            </li>
+          </ul>
+
+          <p class="alert alert-info">
+            <strong>Önemli Kısıt (Açıkça Belirtiyoruz):</strong><br />
+            Model, yalnızca eğitimde gördüğü fiyat aralığı
+            <strong
+              >{{ "%.2f"|format(price_min) }} –
+              {{ "%.2f"|format(price_max) }} TL</strong
+            >
+            içinde güvenilir tahmin üretir. Bu nedenle dinamik fiyat önerisi
+            <u>her durumda bu aralığın içinde</u> hesaplanır. Kullanıcı daha
+            geniş bir aralık girse bile, sistem bu aralığı eğitim aralığı ile
+            kesiştirerek kullanır.
+          </p>
+        </section>
+
+        <!-- 2. NASIL KULLANILIR -->
+        <section class="card">
+          <h2>2. Nasıl Kullanılır? (Kullanıcıya Adım Adım Rehber)</h2>
+          <ol>
+            <li>
+              <strong>Rakip Ortalama Fiyatını Girin:</strong> Piyasadaki benzer
+              ürünlerin ortalama satış fiyatını TL cinsinden yazın (örneğin
+              <code>80</code>).
+            </li>
+            <li>
+              <strong
+                >Opsiyonel: Denemek İstediğiniz Fiyat Aralığını Girin:</strong
+              >
+              Kendi ürününüz için “Fiyat Alt Sınırı” ve “Fiyat Üst Sınırı”
+              alanlarına senaryo oluşturmak istediğiniz aralığı
+              yazabilirsiniz (örneğin 60–120 TL).
+              <br />
+              <span class="muted">
+                Not: Alt ve üst sınırı ters sırada girerseniz (örneğin
+                120–60), sistem bu değerleri otomatik olarak küçükten büyüğe
+                sıralar ve daha sonra bu aralığı eğitim fiyat aralığı ile
+                kesiştirir. Ayrıca model hiçbir zaman
+                {{ "%.2f"|format(price_min) }} TL’den düşük veya
+                {{ "%.2f"|format(price_max) }} TL’den yüksek fiyatı taramaz;
+                seçtiğiniz aralık eğitim aralığı ile kesiştirildikten sonra
+                kullanılır.
+              </span>
+            </li>
+            <li>
+              <strong>“Dinamik Fiyatı Hesapla”ya Basın:</strong> Sistem,
+              belirttiğiniz aralıkta farklı fiyat noktalarını dener, her
+              birinde beklenen talep ve geliri hesaplar ve geliri maksimize
+              eden fiyatı seçer.
+            </li>
+            <li>
+              <strong>Sonuç ve Grafiklere Bakın:</strong> Önerilen fiyatı,
+              beklenen talep ve geliri; ayrıca fiyat–talep ve fiyat–gelir
+              eğrilerini grafik üzerinde görebilirsiniz.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 3. DİNAMİK FİYAT ÖNERİSİ -->
+        <section class="card">
+          <h2>3. Dinamik Fiyat Önerisi Hesaplama</h2>
+
+          <form id="price-form" class="form-grid">
+            <div class="form-group">
+              <label for="competitorPrice">Rakip Ortalama Fiyatı (TL)</label>
+              <input
+                id="competitorPrice"
+                type="text"
+                inputmode="decimal"
+                placeholder="Örn: 80"
+              />
+              <small class="muted">
+                Ondalık için virgül veya nokta kullanabilirsiniz
+                (örnek: <code>79,90</code>).
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="priceMin">Fiyat Alt Sınırı (opsiyonel)</label>
+              <input
+                id="priceMin"
+                type="text"
+                inputmode="decimal"
+                placeholder="{{ '%.2f'|format(price_min) }}"
+              />
+              <small class="muted">
+                Boş bırakırsanız eğitim aralığının alt sınırı
+                ({{ '%.2f'|format(price_min) }}) kullanılır.
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="priceMax">Fiyat Üst Sınırı (opsiyonel)</label>
+              <input
+                id="priceMax"
+                type="text"
+                inputmode="decimal"
+                placeholder="{{ '%.2f'|format(price_max) }}"
+              />
+              <small class="muted">
+                Boş bırakırsanız eğitim aralığının üst sınırı
+                ({{ '%.2f'|format(price_max) }}) kullanılır.
+              </small>
+            </div>
+
+            <div class="form-actions">
+              <button id="btnCalculate" type="submit" class="btn-primary">
+                Dinamik Fiyatı Hesapla
+              </button>
+            </div>
+          </form>
+
+          <div id="errorBox" class="alert alert-error" style="display: none">
+            <!-- Hata mesajı JS ile yazılacak -->
+          </div>
+
+          <!-- 3.1 Sayısal Sonuçlar -->
+          <div
+            id="resultsSection"
+            class="results card-inner"
+            style="display: none"
+          >
+            <h3>3.1. Sayısal Sonuçlar</h3>
+            <p>
+              <strong>Rakip ortalama fiyatı:</strong>
+              <span id="resCompetitorPrice">-</span> TL
+            </p>
+            <p>
+              <strong>Modelin eğitim aralığı:</strong>
+              <span id="resModelRange">-</span> TL
+            </p>
+            <p>
+              <strong>Bu senaryo için kullanılan efektif tarama aralığı:</strong>
+              <span id="resEffectiveRange">-</span> TL
+            </p>
+            <p>
+              <strong>Önerilen dinamik fiyat:</strong>
+              <span id="resBestPrice">-</span> TL
+            </p>
+            <p>
+              <strong>Bu fiyattaki beklenen talep:</strong>
+              <span id="resExpectedQty">-</span> adet
+            </p>
+            <p>
+              <strong>Bu fiyattaki beklenen gelir:</strong>
+              <span id="resExpectedRevenue">-</span> TL
+            </p>
+
+            <p id="resScenarioText" class="scenario-text">
+              <!-- Senaryo açıklaması JS ile doldurulacak -->
+            </p>
+          </div>
+
+          <!-- 3.2 Grafikler -->
+          <div
+            id="chartsSection"
+            class="card-inner"
+            style="display: none; margin-top: 1rem"
+          >
+            <h3>3.2. Fiyat – Talep ve Fiyat – Gelir Grafikleri</h3>
+            <p>
+              Aşağıdaki grafiklerde her nokta, seçtiğiniz rakip fiyat sabitken
+              farklı bir satış fiyatını temsil eder:
+            </p>
+            <ul>
+              <li>
+                <strong>Fiyat–Talep Eğrisi:</strong> Fiyat arttıkça modelin
+                beklediği talep (adet) nasıl değişiyor?
+              </li>
+              <li>
+                <strong>Fiyat–Gelir Eğrisi:</strong> Fiyat × Talep çarpımı hangi
+                noktada maksimum oluyor? Önerilen dinamik fiyat bu eğrinin tepe
+                noktasına karşılık gelir.
+              </li>
+            </ul>
+
+            <div class="chart-grid">
+              <div class="chart-panel">
+                <h4>Fiyat – Talep Eğrisi</h4>
+                <div class="chart-wrapper">
+                  <canvas id="demandChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-panel">
+                <h4>Fiyat – Gelir Eğrisi</h4>
+                <div class="chart-wrapper">
+                  <canvas id="revenueChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <p class="muted note">
+              Uyarı: Bu model, geçmiş satış verileri ve bulanık if–then
+              kuralları üzerinden tahmin üretmektedir. Stok durumu,
+              kampanyalar ya da sezonsallık gibi dış faktörler gerçek satışları
+              etkileyebilir; bu nedenle sonuçlar karar destek amacıyla
+              kullanılmalıdır.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="page-footer">
+        Proje:
+        <strong
+          >Genetik Algoritma ve Bulanık Mantık ile Dinamik Fiyatlandırma
+          Modeli</strong
+        >
+        · Ders: Bulanık Mantık (Final Projesi)
+      </footer>
+    </div>
+
+    <!-- Backend'den gelen sabitler (gerekirse JS kullanabilir) -->
+    <script>
+      const MODEL_PRICE_MIN = {{ "%.2f"|format(price_min) }};
+      const MODEL_PRICE_MAX = {{ "%.2f"|format(price_max) }};
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>
